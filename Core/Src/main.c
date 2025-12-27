@@ -110,7 +110,7 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_Delay(20);
+  HAL_Delay(10);
   st7735s_init();
   st7735s_fill_rect(0, 0, ST7735S_W, ST7735S_H, ST7735S_BLACK);
   st7735s_printf(0, 0, ST7735S_WHITE, ST7735S_BLACK, ST7735S_SIZE_1608, ST7735S_NON_OVERLAY_MODE, "Waiting for key...");
