@@ -16,61 +16,62 @@ static void short_delay(void) {
 void Key_Scan_Tick(void)
 {
     int raw_key = 0;
-
-    // Scan Column 1
-    HAL_GPIO_WritePin(LINE1_GPIO_Port, LINE1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(LINE2_GPIO_Port, LINE2_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LINE3_GPIO_Port, LINE3_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LINE4_GPIO_Port, LINE4_Pin, GPIO_PIN_RESET);
-    short_delay();
-    if(HAL_GPIO_ReadPin(ROW1_GPIO_Port,ROW1_Pin)) raw_key = 1;
-    else if(HAL_GPIO_ReadPin(ROW2_GPIO_Port,ROW2_Pin)) raw_key = 2;
-    else if(HAL_GPIO_ReadPin(ROW3_GPIO_Port,ROW3_Pin)) raw_key = 3;
-    else if(HAL_GPIO_ReadPin(ROW4_GPIO_Port,ROW4_Pin)) raw_key = 4;
-    HAL_GPIO_WritePin(LINE1_GPIO_Port, LINE1_Pin, GPIO_PIN_RESET);
-
-    // Scan Column 2
-    if (raw_key == 0) {
-        HAL_GPIO_WritePin(LINE2_GPIO_Port, LINE2_Pin, GPIO_PIN_SET);
-        short_delay();
-        if(HAL_GPIO_ReadPin(ROW1_GPIO_Port,ROW1_Pin)) raw_key = 5;
-        else if(HAL_GPIO_ReadPin(ROW2_GPIO_Port,ROW2_Pin)) raw_key = 6;
-        else if(HAL_GPIO_ReadPin(ROW3_GPIO_Port,ROW3_Pin)) raw_key = 7;
-        else if(HAL_GPIO_ReadPin(ROW4_GPIO_Port,ROW4_Pin)) raw_key = 8;
-        HAL_GPIO_WritePin(LINE2_GPIO_Port, LINE2_Pin, GPIO_PIN_RESET);
+    
+    // Column and Row configuration tables for cleaner code
+    static const struct {
+        GPIO_TypeDef *port;
+        uint16_t pin;
+    } columns[] = {
+        {LINE1_GPIO_Port, LINE1_Pin},
+        {LINE2_GPIO_Port, LINE2_Pin},
+        {LINE3_GPIO_Port, LINE3_Pin},
+        {LINE4_GPIO_Port, LINE4_Pin}
+    };
+    
+    static const struct {
+        GPIO_TypeDef *port;
+        uint16_t pin;
+    } rows[] = {
+        {ROW1_GPIO_Port, ROW1_Pin},
+        {ROW2_GPIO_Port, ROW2_Pin},
+        {ROW3_GPIO_Port, ROW3_Pin},
+        {ROW4_GPIO_Port, ROW4_Pin}
+    };
+    
+    // 扫描列
+    for (int col = 0; col < 4 && raw_key == 0; col++) {
+        // 设置 HIGH/LOW
+        for (int i = 0; i < 4; i++) {
+            HAL_GPIO_WritePin(columns[i].port, columns[i].pin, 
+                            (i == col) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+        }
+        
+        short_delay(); // 短暂延时
+        
+        // 扫描行
+        for (int row = 0; row < 4; row++) {
+            if (HAL_GPIO_ReadPin(rows[row].port, rows[row].pin)) {
+                raw_key = col * 4 + row + 1;
+                break;
+            }
+        }
     }
-
-    // Scan Column 3
-    if (raw_key == 0) {
-        HAL_GPIO_WritePin(LINE3_GPIO_Port, LINE3_Pin, GPIO_PIN_SET);
-        short_delay();
-        if(HAL_GPIO_ReadPin(ROW1_GPIO_Port,ROW1_Pin)) raw_key = 9;
-        else if(HAL_GPIO_ReadPin(ROW2_GPIO_Port,ROW2_Pin)) raw_key = 10;
-        else if(HAL_GPIO_ReadPin(ROW3_GPIO_Port,ROW3_Pin)) raw_key = 11;
-        else if(HAL_GPIO_ReadPin(ROW4_GPIO_Port,ROW4_Pin)) raw_key = 12;
-        HAL_GPIO_WritePin(LINE3_GPIO_Port, LINE3_Pin, GPIO_PIN_RESET);
+    
+    // 全部重置为low
+    for (int i = 0; i < 4; i++) {
+        HAL_GPIO_WritePin(columns[i].port, columns[i].pin, GPIO_PIN_RESET);
     }
-
-    // Scan Column 4
-    if (raw_key == 0) {
-        HAL_GPIO_WritePin(LINE4_GPIO_Port, LINE4_Pin, GPIO_PIN_SET);
-        short_delay();
-        if(HAL_GPIO_ReadPin(ROW1_GPIO_Port,ROW1_Pin)) raw_key = 13;
-        else if(HAL_GPIO_ReadPin(ROW2_GPIO_Port,ROW2_Pin)) raw_key = 14;
-        else if(HAL_GPIO_ReadPin(ROW3_GPIO_Port,ROW3_Pin)) raw_key = 15;
-        else if(HAL_GPIO_ReadPin(ROW4_GPIO_Port,ROW4_Pin)) raw_key = 16;
-        HAL_GPIO_WritePin(LINE4_GPIO_Port, LINE4_Pin, GPIO_PIN_RESET);
-    }
-
+    
     // Debounce Logic
     if (raw_key == last_sample_key) {
-        if (debounce_cnt < 5) { // Wait for 5 stable ticks (e.g. 50ms if tick is 10ms)
+        if (debounce_cnt < 5) { 
             debounce_cnt++;
         }
-        if (debounce_cnt >= 1) { // Threshold reached
+        
+        if (debounce_cnt >= 5) {
             if (raw_key != current_stable_key) {
                 if (raw_key != 0) {
-                    key_event = raw_key; // Trigger event on press
+                    key_event = raw_key;
                 }
                 current_stable_key = raw_key;
             }
@@ -84,7 +85,7 @@ void Key_Scan_Tick(void)
 int Key_Get_Event(void)
 {
     int k = key_event;
-    key_event = 0; // Clear event after reading
+    key_event = 0;
     return k;
 }
 
